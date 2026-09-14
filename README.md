@@ -19,7 +19,7 @@ Autoload everything:
 
 | Function | Description |
 |----------|-------------|
-| _(none yet)_ | |
+| `mkcd <dir>` | Create a directory (with parents) and `cd` into it |
 
 ## Adding a function
 
