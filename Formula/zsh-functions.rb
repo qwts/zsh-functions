@@ -10,6 +10,7 @@ class ZshFunctions < Formula
   def install
     (share/"zsh-functions").mkpath
     (share/"zsh-functions").install Dir["functions/*"]
+    bin.install "bin/zsh-profile"
   end
 
   def caveats

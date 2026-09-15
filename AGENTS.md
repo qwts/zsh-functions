@@ -24,6 +24,21 @@ from a **private** tap. Everything here is zsh — no bash compatibility needed.
 - Smoke test in a clean shell (catches hidden .zshrc deps):
   `zsh -fc 'fpath+=("$PWD/functions"); autoload -Uz <name>; <name>'`
 - After formula edits: `brew audit --strict Formula/zsh-functions.rb`
+- `zsh-profile` tests are plain bash, no runner:
+  `bash tests/zsh-profile.test.sh` — run from a neutral working directory
+
+## zsh-profile / managed-block conventions
+
+- `bin/zsh-profile` is the canonical implementation of the
+  `# BEGIN <name>` / `# END <name>` marker contract; callers in
+  managed-machine, local-bin, and agent-bot-identity delegate to it when it is
+  on PATH and keep internal fallbacks for bootstrap order
+- block bodies callers write must be dedup-guarded — `zsh-profile` never edits
+  inside markers; edits are atomic (same-dir temp + mv) and preserve the
+  file's mode
+- honor `ZDOTDIR`: with it set, zsh reads `$ZDOTDIR/.zshenv`, never
+  `$HOME/.zshenv`
+- never `git config` user.name/user.email
 
 ## Brew / private-tap notes
 
