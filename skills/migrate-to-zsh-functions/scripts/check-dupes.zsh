@@ -21,7 +21,8 @@
 emulate -L zsh
 setopt errexit nounset pipefail
 
-FUNC_DIR="${1:-${0:A:h}/../../functions}"
+FUNC_DIR="${1:-${0:A:h}/../../../functions}"
+FUNC_DIR="${FUNC_DIR:a}"
 failures=0
 note() { print -r -- "check-dupes: $*"; }
 fail() { print -r -- "check-dupes FAIL: $*"; failures=$(( failures + 1 )); }
@@ -51,7 +52,8 @@ func_dir="$1"
 target="$2"
 path=(/usr/bin /bin)
 fpath=(/usr/share/zsh/site-functions)
-typeset -U path fpath
+# No `typeset -U` here by design: uniqueness must come from the helpers'
+# guards, so a helper that unconditionally prepends fails this test.
 if [[ -f "$func_dir/path_prepend_unique" && -f "$func_dir/fpath_add_unique" ]]; then
   fpath=("$func_dir" $fpath)
   autoload -Uz path_prepend_unique fpath_add_unique
