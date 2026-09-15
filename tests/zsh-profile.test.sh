@@ -81,10 +81,11 @@ if printf 'x\n' | "$ZP" ensure-block --file "$ZSHRC" --name broken >/dev/null 2>
 fi
 
 # --- ensure-block: file mode preserved ----------------------------------------
+mode_of() { stat -f %Lp "$1" 2>/dev/null || stat -c %a "$1"; }
 printf 'mode test\n' >"$ZSHRC"
 chmod 640 "$ZSHRC"
 printf 'x\n' | "$ZP" ensure-block --file "$ZSHRC" --name m >/dev/null
-[[ "$(stat -f %Lp "$ZSHRC")" == "640" ]] || fail "mode not preserved"
+[[ "$(mode_of "$ZSHRC")" == "640" ]] || fail "mode not preserved"
 
 # --- remove-block: block removed, boundary blanks collapse ---------------------
 printf 'top\n\n# BEGIN gone\nx\n# END gone\n\nbottom\n' >"$ZSHRC"
@@ -100,6 +101,12 @@ printf 'top\n' | cmp - "$ZSHRC" || fail "remove-block at EOF left trailing blank
 printf 'top\n' >"$ZSHRC"
 "$ZP" remove-block --file "$ZSHRC" --name none >/dev/null
 printf 'top\n' | cmp - "$ZSHRC" || fail "remove-block touched a file with no block"
+
+# --- remove-block: unrelated edge whitespace is preserved ------------------------
+printf '\n\ntop\n\n# BEGIN mid\nx\n# END mid\n\nbottom\n\n\n' >"$ZSHRC"
+"$ZP" remove-block --file "$ZSHRC" --name mid >/dev/null
+printf '\n\ntop\n\nbottom\n\n\n' | cmp - "$ZSHRC" \
+    || fail "remove-block rewrote edge blanks unrelated to the block"
 
 # --- ensure-line: appends once, repairs missing trailing newline ----------------
 printf 'no newline' >"$ZSHRC"
@@ -142,6 +149,9 @@ grep -q 'duplicate block' <<<"$(lint_out "$ZSHRC")" || fail "lint missed dup blo
 
 printf '# BEGIN open\nx\n' >"$ZSHRC"
 grep -q 'unterminated' <<<"$(lint_out "$ZSHRC")" || fail "lint missed orphan BEGIN"
+
+printf '# BEGIN a\nx\n# END b\n' >"$ZSHRC"
+grep -q 'does not close' <<<"$(lint_out "$ZSHRC")" || fail "lint missed mismatched END"
 
 printf 'a\n\n\n\nb\n' >"$ZSHRC"
 grep -q 'blank run' <<<"$(lint_out "$ZSHRC")" || fail "lint missed blank rot"
