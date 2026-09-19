@@ -9,6 +9,8 @@ from a **private** tap. Everything here is zsh — no bash compatibility needed.
 
 - `functions/` — one file per function, filename == function name, no extension
   (autoload convention)
+- `install` + `lib/install.sh` — machine install (mirrors local-bin): links,
+  manifest, managed `.zshenv` loader block via `bin/zsh-profile`
 - `Formula/zsh-functions.rb` — Homebrew formula
 
 ## Conventions
@@ -26,6 +28,8 @@ from a **private** tap. Everything here is zsh — no bash compatibility needed.
 - After formula edits: `brew audit --strict Formula/zsh-functions.rb`
 - `zsh-profile` tests are plain bash, no runner:
   `bash tests/zsh-profile.test.sh` — run from a neutral working directory
+- `install` tests are plain bash with an isolated `HOME`, no runner:
+  `bash tests/install.test.sh` — same convention, never touches the real `~/`
 
 ## zsh-profile / managed-block conventions
 

@@ -4,6 +4,22 @@ Common zsh functions, installed globally via Homebrew (private tap).
 
 ## Install
 
+Machine install from a checkout (mirrors `local-bin/install`):
+
+    ./install
+
+This symlinks `functions/*` into
+`${XDG_DATA_HOME:-$HOME/.local/share}/zsh/functions` (manifest-tracked at
+`~/.config/zsh-functions/linked-functions`, stale links pruned), links
+`bin/zsh-profile` into `~/.local/bin`, and writes the managed loader block
+into `${ZDOTDIR:-$HOME}/.zshenv` via `zsh-profile` — delegating to
+`zsh_functions_init`, so startup only marks names without reading files.
+Re-running is a no-op. The legacy `~/.functions` sourcing loop is removed
+(with a `.<epoch>.bak` backup); `~/.functions/` files themselves are left
+alone.
+
+Homebrew (private tap) installs the same payload:
+
     brew tap qwts/zsh-functions git@github.com:qwts/zsh-functions.git
     brew install zsh-functions
 
