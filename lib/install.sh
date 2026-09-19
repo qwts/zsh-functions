@@ -14,33 +14,58 @@ zsh_functions_zshenv() {
     printf '%s/.zshenv\n' "${ZDOTDIR:-$HOME}"
 }
 
+# Resolve a symlink chain to its ultimate target (follows relative links,
+# canonicalizes .. via cd). Prints empty and fails on unresolvable chains.
+resolve_symlink_chain() {
+    local p="$1" target seen=0
+    while [[ -L "$p" ]]; do
+        (( seen++ < 40 )) || return 1
+        target="$(readlink "$p")"
+        case "$target" in
+            /*) p="$target" ;;
+            *) p="$(dirname "$p")/$target" ;;
+        esac
+    done
+    [[ -n "$p" ]] || return 1
+    ( cd "$(dirname "$p")" 2>/dev/null && printf '%s/%s\n' "$PWD" "$(basename "$p")" )
+}
+
 # Header line of the legacy hand-added ~/.functions sourcing loop. The
 # remover below deletes from this line through its closing fi.
 LEGACY_FUNCTIONS_LOOP_BEGIN="# zsh functions folder"
 
 # Remove the legacy ~/.functions sourcing loop (header through its closing
-# fi) from a zsh startup file. --absorb-marker cannot do this alone: the
-# loop's trailing `done`/`fi` lines carry no identifying substring, and
-# absorbing bare `done`/`fi` would eat unrelated code. Bounded and exact:
-# only a block opened by the known header is removed; an unclosed header
-# is left untouched and the function fails.
+# fi) from a zsh startup file. Only a block opened by the known header is
+# ever touched: header-less lookalikes are left alone (conservative beats
+# destructive — a global substring absorb could strip lines out of an
+# unrecognized compound command and leave bare done/fi behind). The closing
+# fi may carry surrounding whitespace; an unclosed header aborts with
+# nonzero status and the file is left untouched. Commits go through a
+# same-directory temp + mv with mode preservation, mirroring zsh-profile's
+# atomic writer — never a truncating redirect into the live file.
 remove_legacy_functions_loop() {
-    local file="$1" tmp
+    local file="$1" dir tmp mode
     [[ -f "$file" ]] || return 0
-    tmp="$(mktemp)"
-    # shellcheck disable=SC2064
-    trap 'rm -f "$tmp"' RETURN
+    dir="$(dirname "$file")"
+    tmp="$(mktemp "$dir/.zsh-functions.XXXXXX")"
     if ! awk -v begin="$LEGACY_FUNCTIONS_LOOP_BEGIN" '
         $0 == begin { skipping = 1; found = 1; next }
-        skipping && $0 == "fi" { skipping = 0; next }
+        skipping && $0 ~ /^[ \t]*fi[ \t]*$/ { skipping = 0; next }
         !skipping { print }
         END { if (!found) exit 0; exit skipping }
     ' "$file" >"$tmp"; then
-        echo "note: legacy functions loop in $file has no closing fi — left untouched" >&2
+        rm -f "$tmp"
+        echo "Error: legacy functions loop in $file has no closing fi — refusing to migrate" >&2
         return 1
     fi
     if cmp -s "$tmp" "$file"; then
+        rm -f "$tmp"
         return 0
     fi
-    cat "$tmp" >"$file"
+    mode="$(stat -f %Lp "$file" 2>/dev/null || stat -c %a "$file" 2>/dev/null)" || {
+        rm -f "$tmp"
+        echo "Error: cannot read mode of $file" >&2
+        return 1
+    }
+    chmod "$mode" "$tmp" && mv -f "$tmp" "$file"
 }
