@@ -1,0 +1,172 @@
+#!/usr/bin/env bash
+# Install zsh-functions onto this machine.
+#
+# - symlinks functions/* into ${XDG_DATA_HOME:-$HOME/.local/share}/zsh/functions
+#   (manifest-tracked, stale links pruned like local-bin prunes commands)
+# - links bin/zsh-profile into ~/.local/bin
+# - writes the managed loader block into ${ZDOTDIR:-$HOME}/.zshenv via
+#   zsh-profile, removing the recognized legacy ~/.functions sourcing loop
+#
+# Safe to re-run: second run is a no-op. Fails closed: an unclosed legacy
+# block aborts before anything is written.
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=lib/install.sh
+source "$REPO_ROOT/lib/install.sh"
+
+FUNCS_SRC="$REPO_ROOT/functions"
+FUNCS_DEST="$(zsh_functions_data_dir)"
+CONFIG_DIR="$(zsh_functions_config_dir)"
+MANIFEST="$CONFIG_DIR/linked-functions"
+LOCAL_BIN="$HOME/.local/bin"
+ZSH_PROFILE_LINK="$LOCAL_BIN/zsh-profile"
+ZSHENV="$(zsh_functions_zshenv)"
+
+# If the repo lives on an external volume, verify the mount is present so a
+# missing volume is a clear message instead of a dangling-symlink failure.
+check_repo_mounted() {
+    if [[ ! -d "$REPO_ROOT" ]]; then
+        echo "Error: repo root not found: $REPO_ROOT" >&2
+        echo "If it lives on an external volume, mount it and re-run." >&2
+        exit 1
+    fi
+    case "$REPO_ROOT" in
+        /Volumes/*)
+            if ! df "$REPO_ROOT" >/dev/null 2>&1; then
+                echo "Error: volume for $REPO_ROOT is not mounted." >&2
+                echo "Mount the external drive and try again." >&2
+                exit 1
+            fi
+            ;;
+    esac
+}
+
+# Move file to file.<epoch>.bak (next to the original). Prints the bak path.
+backup_home_file() {
+    local dest="$1" epoch bak
+    epoch="$(date +%s)"
+    bak="${dest}.${epoch}.bak"
+    if [[ -e "$bak" ]]; then
+        bak="${dest}.${epoch}.$$.bak"
+    fi
+    cp "$dest" "$bak"
+    printf '%s\n' "$bak"
+}
+
+# The loader block body (stdin for zsh-profile ensure-block). Delegates to
+# zsh_functions_init: the entry is autoload-marked, no file is read at
+# startup. The fpath prepend is itself dedup-guarded so repeated sourcing in
+# one shell cannot grow fpath (managed-block bodies must be dedup-guarded).
+# No export lines, so managed-machine template refreshes never flag this file.
+loader_block_body() {
+    cat <<'BLOCK'
+if [[ -d "${XDG_DATA_HOME:-$HOME/.local/share}/zsh/functions" ]]; then
+    ZSH_FUNCTIONS_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/zsh/functions"
+    if (( ${fpath[(I)$ZSH_FUNCTIONS_DIR]} == 0 )); then
+        fpath=("$ZSH_FUNCTIONS_DIR" $fpath)
+    fi
+    autoload -Uz zsh_functions_init
+    zsh_functions_init
+fi
+BLOCK
+}
+
+check_repo_mounted
+
+# A symlinked .zshenv (dotfiles-managed setups) must keep working: edit the
+# target, never replace the link. zsh-profile's atomic mv would otherwise
+# swap the symlink for a regular file and silently disconnect the setup.
+if [[ -L "$ZSHENV" ]]; then
+    resolved="$(resolve_symlink_chain "$ZSHENV")" || {
+        echo "Error: cannot resolve .zshenv symlink: $ZSHENV" >&2
+        exit 1
+    }
+    ZSHENV="$resolved"
+fi
+
+mkdir -p "$FUNCS_DEST" "$CONFIG_DIR" "$LOCAL_BIN" "$(dirname "$ZSHENV")"
+touch "$MANIFEST"
+[[ -f "$ZSHENV" ]] || : >"$ZSHENV"
+
+# Back up a pre-existing .zshenv that we are about to change (missing loader
+# block or legacy loop present).
+if [[ -s "$ZSHENV" ]] && { ! grep -qxF '# BEGIN zsh-functions' "$ZSHENV" || grep -qF '.functions' "$ZSHENV"; }; then
+    bak="$(backup_home_file "$ZSHENV")"
+    echo "backed up $ZSHENV -> $bak"
+fi
+
+# Remove the legacy eager-sourcing loop first: an unclosed block aborts the
+# install here, before any link or block is written.
+remove_legacy_functions_loop "$ZSHENV"
+
+# Collect desired "name<TAB>target" pairs into a temp file.
+desired_file="$(mktemp)"
+# shellcheck disable=SC2064
+trap 'rm -f "$desired_file" "${manifest_tmp:-}"' EXIT
+
+while IFS= read -r -d '' path; do
+    name="$(basename "$path")"
+    printf '%s\t%s\n' "$name" "$path" >>"$desired_file"
+done < <(find "$FUNCS_SRC" -maxdepth 1 -type f -print0)
+
+# Create / refresh desired links.
+linked=0
+while IFS=$'\t' read -r name target; do
+    ln -sfn "$target" "$FUNCS_DEST/$name"
+    linked=$((linked + 1))
+done < <(sort "$desired_file")
+
+# Prune stale managed links: manifest names no longer in the desired set are
+# removed when the destination link still points at the recorded target
+# (covers renames) or into this checkout (covers live renames). The recorded
+# target matters after the checkout moves: a dangling link whose target
+# matches the manifest entry is still recognized as ours even though the
+# current root no longer matches. Anything else in the destination — user
+# links, foreign files — is left alone.
+pruned=0
+while IFS=$'\t' read -r old_name recorded; do
+    [[ -n "$old_name" ]] || continue
+    if grep -qF "$(printf '%s\t' "$old_name")" "$desired_file"; then
+        continue
+    fi
+    link="$FUNCS_DEST/$old_name"
+    if [[ -L "$link" ]]; then
+        resolved="$(readlink "$link")"
+        if [[ -n "${recorded:-}" && "$resolved" == "$recorded" ]]; then
+            rm -f "$link"
+            pruned=$((pruned + 1))
+        else
+            case "$resolved" in
+                "$FUNCS_SRC"/*)
+                    rm -f "$link"
+                    pruned=$((pruned + 1))
+                    ;;
+            esac
+        fi
+    fi
+done < "$MANIFEST"
+
+# Rewrite the manifest with the current desired set (name + target, so a
+# moved checkout keeps ownership information for the next prune). Same-dir
+# temp + mv: never truncate the live manifest.
+manifest_tmp="$(mktemp "$(dirname "$MANIFEST")/.manifest.XXXXXX")"
+sort "$desired_file" >"$manifest_tmp"
+mv "$manifest_tmp" "$MANIFEST"
+
+# zsh-profile on PATH for downstream writers (managed-machine, local-bin).
+ln -sfn "$REPO_ROOT/bin/zsh-profile" "$ZSH_PROFILE_LINK"
+
+# Ensure the managed loader block. No --absorb-marker flags: removal is
+# limited to the positively recognized legacy construct above; broad
+# substring absorption could strip lines from unrecognized code and leave
+# bare done/fi behind.
+loader_block_body | "$REPO_ROOT/bin/zsh-profile" ensure-block \
+    --file "$ZSHENV" --name zsh-functions
+
+echo "linked $linked function(s) into $FUNCS_DEST"
+if [[ "$pruned" -gt 0 ]]; then
+    echo "pruned $pruned stale managed link(s)"
+fi
+echo "ensured zsh-functions loader in $ZSHENV"
+echo "open a new shell or: ZSH_FUNCTIONS_DIR=\"$FUNCS_DEST\" zsh -c 'autoload -Uz zsh_functions_init; zsh_functions_init'"
