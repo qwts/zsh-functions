@@ -85,8 +85,31 @@ zsh -f -c "
   ZSH_FUNCTIONS_DIR=\"$FUNCS\" zsh_functions_init || exit 1
 " || fail "zsh_functions_init cycle/autoload failed"
 
-# --- zsh_functions_init: warm path never forks brew ------------------------------
-ZSH_BIN="$(command -v zsh)"
+# --- zsh_functions_init: default brew resolution once, then cached ---------------
+FIXHOME="$TEST_DIR/fakehome"
+mkdir -p "$FIXHOME/share/zsh-functions" "$TEST_DIR/fakebrewbin"
+printf 'fixture_fn() {\n  print fixture-hi\n}\n' >"$FIXHOME/share/zsh-functions/fixture_fn"
+printf '#!/bin/sh\necho "%s"\necho x >> "%s/brewcalls"\n' "$FIXHOME" "$TEST_DIR" >"$TEST_DIR/fakebrewbin/brew"
+chmod +x "$TEST_DIR/fakebrewbin/brew"
+rm -f "$TEST_DIR/brewcalls"
+zsh -f -c "
+  unset ZSH_FUNCTIONS_DIR
+  path=(\"$TEST_DIR/fakebrewbin\" \$path)
+  fpath+=(\"$FUNCS\")
+  autoload -Uz zsh_functions_init
+  zsh_functions_init || exit 1
+  [[ \"\${_ZSH_FUNCTIONS_DIR:-}\" == \"$FIXHOME/share/zsh-functions\" ]] \
+    || { print -u2 'default resolution wrong'; exit 1 }
+  whence -w fixture_fn | grep -q 'function' || { print -u2 'fixture not autoloaded'; exit 1 }
+  [[ \"\$(wc -l < \"$TEST_DIR/brewcalls\" | tr -d ' ')\" == \"1\" ]] \
+    || { print -u2 'brew should run exactly once'; exit 1 }
+  brew() { print -u2 'brew forked on cached path'; exit 9 }
+  zsh_functions_init || exit 1
+  [[ \"\$(wc -l < \"$TEST_DIR/brewcalls\" | tr -d ' ')\" == \"1\" ]] \
+    || { print -u2 'cached call forked brew'; exit 1 }
+" || fail "default brew resolution/caching failed"
+
+# --- zsh_functions_init: ZSH_FUNCTIONS_DIR override warm path never forks brew ----
 zsh -f -c "
   fpath+=(\"$FUNCS\")
   autoload -Uz zsh_functions_init
