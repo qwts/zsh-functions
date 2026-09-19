@@ -35,13 +35,29 @@ zsh -f -c "
   (( c == 1 )) || { print -u2 \"duplicate PATH entry: \$c\"; exit 1 }
 " || fail "path_prepend_unique duplicated"
 
-# --- path_prepend_unique: missing/unreadable is no-op exit 0 -------------------
+# --- path_prepend_unique: rejected inputs leave PATH byte-identical ---------------
 zsh -f -c "
   fpath+=(\"$FUNCS\")
   autoload -Uz path_prepend_unique
+  export PATH=\"/usr/bin:/bin:/usr/bin:/bin\"
+  before=\"\$PATH\"
+  path_prepend_unique || exit 1
+  [[ \"\$PATH\" == \"\$before\" ]] || { print -u2 'no-arg call mutated PATH'; exit 1 }
   path_prepend_unique \"$TEST_DIR/does-not-exist\" || exit 1
-  print ok
-" | grep -qx 'ok' || fail "missing dir was not no-op exit 0"
+  [[ \"\$PATH\" == \"\$before\" ]] || { print -u2 'missing-dir call mutated PATH'; exit 1 }
+" || fail "path_prepend_unique no-op mutated PATH"
+
+# --- fpath_add_unique: rejected inputs leave fpath byte-identical -----------------
+zsh -f -c "
+  fpath+=(\"$FUNCS\")
+  autoload -Uz fpath_add_unique
+  fpath=(\"$FUNCS\" \"/nonexistent-a\" \"/nonexistent-b\" \"/nonexistent-a\")
+  before=\"\${fpath[*]}\"
+  fpath_add_unique || exit 1
+  [[ \"\${fpath[*]}\" == \"\$before\" ]] || { print -u2 'no-arg call mutated fpath'; exit 1 }
+  fpath_add_unique \"$TEST_DIR/does-not-exist\" || exit 1
+  [[ \"\${fpath[*]}\" == \"\$before\" ]] || { print -u2 'missing-dir call mutated fpath'; exit 1 }
+" || fail "fpath_add_unique no-op mutated fpath"
 
 # --- fpath_add_unique: dedup + missing tolerance --------------------------------
 zsh -f -c "
@@ -93,6 +109,14 @@ zsh -f -c "
   c=0
   for p in \"\$path[@]\"; do [[ \"\$p\" == \"$FAKE/sbin\" ]] && (( c++ )); done
   (( c == 1 )) || { print -u2 'sbin not exactly once'; exit 1 }
+  [[ \"\$path[1]\" == \"$FAKE/bin\" ]] || { print -u2 \"configured prefix not first: \$path[1]\"; exit 1 }
+  bin_i=0; sbin_i=0; i=0
+  for p in \"\$path[@]\"; do
+    (( i++ ))
+    [[ \"\$p\" == \"$FAKE/bin\" ]] && bin_i=\$i
+    [[ \"\$p\" == \"$FAKE/sbin\" ]] && sbin_i=\$i
+  done
+  (( bin_i < sbin_i )) || { print -u2 'bin should precede sbin'; exit 1 }
 " || fail "brew_refresh_path fake-prefix failed"
 [[ -z "$(ls -A "$FAKE")" ]] || true
 [[ ! -e "$FAKE/touched" ]] || fail "brew_refresh_path wrote files"

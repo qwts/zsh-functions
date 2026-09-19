@@ -2,12 +2,23 @@
 # Usage: path_prepend_unique <dir> [...]
 path_prepend_unique() {
   emulate -L zsh
-  typeset -gU path PATH
-  local d p found
+  # Collect first: rejected inputs (no args, missing/unreadable dirs,
+  # already-present dirs) return without touching PATH at all, so a no-op
+  # call is byte-identical and never collapses pre-existing duplicates.
+  local d p q found
+  local -a valid
+  valid=()
   for d in "$@"; do
     [[ -n "${d:-}" ]] || continue
     [[ -d "$d" && -r "$d" ]] || continue
     found=0
+    for q in "${valid[@]}"; do
+      if [[ "$q" == "$d" ]]; then
+        found=1
+        break
+      fi
+    done
+    (( found )) && continue
     for p in "${path[@]}"; do
       if [[ "$p" == "$d" ]]; then
         found=1
@@ -15,7 +26,10 @@ path_prepend_unique() {
       fi
     done
     (( found )) && continue
-    path=("$d" "${path[@]}")
+    valid+=("$d")
   done
+  (( ${#valid} )) || return 0
+  typeset -gU path PATH
+  path=("${valid[@]}" "${path[@]}")
   return 0
 }
