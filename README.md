@@ -46,6 +46,11 @@ zsh-profile compact            FILE...
 | Function | Description |
 |----------|-------------|
 | `mkcd <dir>` | Create a directory (with parents) and `cd` into it |
+| `path_prepend_unique <dir> [...]` | Prepend directory to `PATH` once, no-op on missing/unreadable |
+| `fpath_add_unique <dir> [...]` | Prepend directory to `fpath` once, missing-dir tolerant |
+| `zsh_functions_init` | Loader entry point: cache dir, fpath once, `autoload` all functions |
+| `brew_refresh_path` | Put Homebrew `bin`/`sbin` on `PATH` with no writes, idempotent |
+| `dirsize [-j N] [dir]` | List immediate subdirs by disk size, largest first |
 
 ## Adding a function
 

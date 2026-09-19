@@ -1,0 +1,21 @@
+# functions/path_prepend_unique: prepend a directory to PATH once.
+# Usage: path_prepend_unique <dir> [...]
+path_prepend_unique() {
+  emulate -L zsh
+  typeset -gU path PATH
+  local d p found
+  for d in "$@"; do
+    [[ -n "${d:-}" ]] || continue
+    [[ -d "$d" && -r "$d" ]] || continue
+    found=0
+    for p in "${path[@]}"; do
+      if [[ "$p" == "$d" ]]; then
+        found=1
+        break
+      fi
+    done
+    (( found )) && continue
+    path=("$d" "${path[@]}")
+  done
+  return 0
+}
