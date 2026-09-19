@@ -1,0 +1,49 @@
+# functions/brew_refresh_path: put Homebrew bin/sbin on PATH without writes.
+# Usage: brew_refresh_path
+# Light repair only: no subprocess, no file writes. Idempotent and safe to call
+# manually or from precmd/chpwd. Delegates to path_prepend_unique.
+brew_refresh_path() {
+  emulate -L zsh
+  local prefix
+  local -a prefixes
+  prefixes=()
+  if [[ -n "${HOMEBREW_PREFIX:-}" ]]; then
+    prefixes+=("$HOMEBREW_PREFIX")
+  fi
+  prefixes+=(/opt/homebrew /usr/local /home/linuxbrew/.linuxbrew)
+  # Prepend puts each entry ahead of the previous one, so iterate in reverse:
+  # the configured HOMEBREW_PREFIX (first in the list) ends up first on PATH.
+  # Within a prefix, sbin goes first so bin stays ahead of it.
+  local i
+  for (( i = $#prefixes; i >= 1; i-- )); do
+    prefix="${prefixes[$i]}"
+    [[ -n "$prefix" ]] || continue
+    if [[ -d "$prefix/sbin" && -r "$prefix/sbin" ]]; then
+      _brew_refresh_path_prepend "$prefix/sbin"
+    fi
+    if [[ -d "$prefix/bin" && -r "$prefix/bin" ]]; then
+      _brew_refresh_path_prepend "$prefix/bin"
+    fi
+  done
+  return 0
+}
+
+# Private: prefer the catalog helper, fall back to inline dedup when it is not
+# yet autoloadable (bootstrap order).
+_brew_refresh_path_prepend() {
+  emulate -L zsh
+  local d="${1:?usage: _brew_refresh_path_prepend <dir>}"
+  if whence -w path_prepend_unique >/dev/null 2>&1; then
+    path_prepend_unique "$d"
+    return 0
+  fi
+  local p
+  for p in "${path[@]}"; do
+    if [[ "$p" == "$d" ]]; then
+      return 0
+    fi
+  done
+  typeset -gU path PATH
+  path=("$d" "${path[@]}")
+  return 0
+}

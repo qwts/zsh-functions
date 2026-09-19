@@ -1,0 +1,52 @@
+# List folders by disk size, largest first.
+# Usage: dirsize [-j jobs] [directory] (defaults to current directory)
+#   -j N   run at most N `du` processes in parallel (default: CPU count,
+#          or $DIRSIZE_JOBS when set).
+# Each immediate subdirectory is sized by its own `du -sh` process via
+# `xargs -P`, then results are sorted largest-first. Output format matches
+# the historic serial version: "<size>\t<path>" sorted with `sort -hr`.
+dirsize() {
+  emulate -L zsh
+  setopt localoptions null_glob
+
+  local jobs="${DIRSIZE_JOBS:-}"
+  while [[ "${1:-}" == "-j" || "${1:-}" == "--jobs" ]]; do
+    if [[ -z "${2:-}" ]]; then
+      print -u2 "dirsize: -j requires a job count"
+      return 2
+    fi
+    jobs="$2"
+    shift 2
+  done
+  if [[ "${1:-}" == "-j="* ]]; then
+    jobs="${1#-j=}"
+    shift
+  fi
+
+  local dir="${1:-.}"
+  if [[ ! -d "$dir" ]]; then
+    print -u2 "dirsize: not a directory: $dir"
+    return 1
+  fi
+
+  if [[ -z "$jobs" ]]; then
+    jobs="$(getconf _NPROCESSORS_ONLN 2>/dev/null \
+      || sysctl -n hw.ncpu 2>/dev/null \
+      || nproc 2>/dev/null \
+      || echo 4)"
+  fi
+  if [[ "$jobs" != <-> || "$jobs" -lt 1 ]]; then
+    print -u2 "dirsize: invalid job count: $jobs (using 4)"
+    jobs=4
+  fi
+
+  local -a subs
+  subs=( "$dir"/*/ )
+  if (( ${#subs} == 0 )); then
+    return 0
+  fi
+
+  printf '%s\0' "${subs[@]}" \
+    | xargs -0 -P "$jobs" -n 1 du -sh 2>/dev/null \
+    | sort -hr
+}

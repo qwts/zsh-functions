@@ -1,0 +1,34 @@
+# functions/fpath_add_unique: prepend a directory to fpath once.
+# Usage: fpath_add_unique <dir> [...]
+fpath_add_unique() {
+  emulate -L zsh
+  # Same no-op contract as path_prepend_unique: validate first so rejected
+  # inputs leave fpath byte-identical.
+  local d p q found
+  local -a valid
+  valid=()
+  for d in "$@"; do
+    [[ -n "${d:-}" ]] || continue
+    [[ -d "$d" ]] || continue
+    found=0
+    for q in "${valid[@]}"; do
+      if [[ "$q" == "$d" ]]; then
+        found=1
+        break
+      fi
+    done
+    (( found )) && continue
+    for p in "${fpath[@]}"; do
+      if [[ "$p" == "$d" ]]; then
+        found=1
+        break
+      fi
+    done
+    (( found )) && continue
+    valid+=("$d")
+  done
+  (( ${#valid} )) || return 0
+  typeset -gU fpath FPATH
+  fpath=("${valid[@]}" "${fpath[@]}")
+  return 0
+}

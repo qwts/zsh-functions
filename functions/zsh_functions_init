@@ -1,0 +1,47 @@
+# functions/zsh_functions_init: single entry point for the managed loader block.
+# Usage: zsh_functions_init
+# Resolves the functions dir once from ${ZSH_FUNCTIONS_DIR:-$(brew --prefix)/share/zsh-functions},
+# caches it in $_ZSH_FUNCTIONS_DIR so warm startups never fork brew, adds it to
+# fpath once, and autoloads each plain file in it. Cycle-safe via $_ZSH_FUNCTIONS_INITED.
+zsh_functions_init() {
+  emulate -L zsh
+  setopt localoptions extendedglob null_glob
+  if (( ${+_ZSH_FUNCTIONS_INITED} )) && [[ -n "${_ZSH_FUNCTIONS_INITED:-}" ]]; then
+    return 0
+  fi
+  local dir=""
+  if [[ -n "${_ZSH_FUNCTIONS_DIR:-}" ]]; then
+    dir="$_ZSH_FUNCTIONS_DIR"
+  elif [[ -n "${ZSH_FUNCTIONS_DIR:-}" ]]; then
+    dir="$ZSH_FUNCTIONS_DIR"
+  else
+    local prefix=""
+    if whence -w brew >/dev/null 2>&1; then
+      prefix="$(brew --prefix 2>/dev/null)" || prefix=""
+    fi
+    if [[ -n "$prefix" ]]; then
+      dir="$prefix/share/zsh-functions"
+    fi
+  fi
+  typeset -g _ZSH_FUNCTIONS_INITED=1
+  [[ -n "$dir" ]] || return 0
+  typeset -g _ZSH_FUNCTIONS_DIR="$dir"
+  [[ -d "$dir" ]] || return 0
+  typeset -gU fpath FPATH
+  local p found=0
+  for p in "${fpath[@]}"; do
+    if [[ "$p" == "$dir" ]]; then
+      found=1
+      break
+    fi
+  done
+  (( found )) || fpath=("$dir" "${fpath[@]}")
+  local -a files
+  files=("$dir"/*(N-.))
+  (( ${#files} )) || return 0
+  local f
+  for f in "${files[@]}"; do
+    autoload -Uz "${f:t}"
+  done
+  return 0
+}

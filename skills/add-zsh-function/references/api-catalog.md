@@ -3,9 +3,8 @@
 Canonical runtime helpers owned by this repo. Call them; do not reimplement
 their logic in new functions or in consumer repos.
 
-> Status note: the helpers below are the **planned Phase-1 interface**. Names
-> and semantics are frozen by this document; the first function that needs one
-> implements it in `functions/` and deletes its `Planned` tag here.
+> Status note: the helpers below are the **Phase-1 interface**, implemented in
+> `functions/`. Names and semantics are frozen by this document.
 
 | Helper | Role | Key contract |
 |---|---|---|
@@ -15,6 +14,6 @@ their logic in new functions or in consumer repos.
 | `brew_refresh_path` | Dynamic repair when Homebrew appears mid-session or its prefix is readable but not writable | Idempotent; safe to call manually or from `precmd`/`chpwd`; delegates to `path_prepend_unique` |
 
 Existing example: `functions/mkcd` (no helpers needed — pure directory+cd logic).
-Ported example (pending): `functions/dirsize` (ported from the legacy
+Ported example: `functions/dirsize` (ported from the legacy
 `~/.functions/dirsize.zsh` manual copy; keeps its `emulate -L zsh` +
 parallel-`du` behavior, drops the hand-copy install).
