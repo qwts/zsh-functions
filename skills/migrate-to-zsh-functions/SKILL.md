@@ -14,7 +14,7 @@ of the target file.
 
 ## Before you start
 
-1. Open `AGENTS.md` and [api-catalog.md](../add-zsh-function/references/api-catalog.md).
+1. Open `AGENTS.md` and [api-catalog.md](../zsh-functions/references/api-catalog.md).
 2. Open [marker-contract.md](references/marker-contract.md) (exact marker strings and semantics).
 3. Open [writer-matrix.md](references/writer-matrix.md) (who writes which file and where the
    change lands — templates, never live `~/` files).

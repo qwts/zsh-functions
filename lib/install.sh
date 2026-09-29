@@ -62,7 +62,7 @@ remove_legacy_functions_loop() {
         rm -f "$tmp"
         return 0
     fi
-    mode="$(stat -f %Lp "$file" 2>/dev/null || stat -c %a "$file" 2>/dev/null)" || {
+    mode="$(stat -c %a "$file" 2>/dev/null || stat -f %Lp "$file" 2>/dev/null)" || {
         rm -f "$tmp"
         echo "Error: cannot read mode of $file" >&2
         return 1
