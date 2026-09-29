@@ -227,7 +227,7 @@ zp_lint_file() {
         {
             if ($0 ~ /^# BEGIN /) {
                 if (open != "") { printf "%s:%d: nested BEGIN inside an open block\n", file, NR; findings++ }
-                else { open = $0 }
+                else { open = $0; openline = NR }
                 if (seen[$0]) { printf "%s:%d: duplicate block: %s\n", file, NR, $0; findings++ }
                 seen[$0] = 1
             } else if ($0 ~ /^# END /) {
@@ -249,8 +249,8 @@ zp_lint_file() {
             }
         }
         END {
-            if (open != "") { printf "%s: unterminated block at EOF\n", file; findings++ }
-            if (run > 0) { printf "%s: trailing blank line(s) at EOF\n", file; findings++ }
+            if (open != "") { printf "%s:%d: unterminated block at EOF: %s\n", file, openline, open; findings++ }
+            if (run > 0) { printf "%s:%d: trailing blank line(s) at EOF\n", file, NR - run + 1; findings++ }
             exit (findings > 0)
         }
     ' "$file"
@@ -335,8 +335,8 @@ case "$cmd" in
         trap 'rm -f "$absorb_tmp"' EXIT
         while [[ $# -gt 0 ]]; do
             case "$1" in
-                --file) file="${2:?missing value for $1}"; shift 2 ;;
-                --name) name="${2:?missing value for $1}"; shift 2 ;;
+                --file) [[ -n "${2:-}" ]] || die "missing value for $1"; file="$2"; shift 2 ;;
+                --name) [[ -n "${2:-}" ]] || die "missing value for $1"; name="$2"; shift 2 ;;
                 --absorb-marker) [[ -n "${2:-}" ]] || die "--absorb-marker requires a value"; printf '%s\n' "$2" >>"$absorb_tmp"; shift 2 ;;
                 *) die "ensure-block: unknown option: $1" ;;
             esac
@@ -360,8 +360,8 @@ case "$cmd" in
         file="" name=""
         while [[ $# -gt 0 ]]; do
             case "$1" in
-                --file) file="${2:?missing value for $1}"; shift 2 ;;
-                --name) name="${2:?missing value for $1}"; shift 2 ;;
+                --file) [[ -n "${2:-}" ]] || die "missing value for $1"; file="$2"; shift 2 ;;
+                --name) [[ -n "${2:-}" ]] || die "missing value for $1"; name="$2"; shift 2 ;;
                 *) die "remove-block: unknown option: $1" ;;
             esac
         done
@@ -382,9 +382,9 @@ case "$cmd" in
         file="" marker="" line=""
         while [[ $# -gt 0 ]]; do
             case "$1" in
-                --file) file="${2:?missing value for $1}"; shift 2 ;;
-                --marker) marker="${2:?missing value for $1}"; shift 2 ;;
-                --line) line="${2:?missing value for $1}"; shift 2 ;;
+                --file) [[ -n "${2:-}" ]] || die "missing value for $1"; file="$2"; shift 2 ;;
+                --marker) [[ -n "${2:-}" ]] || die "missing value for $1"; marker="$2"; shift 2 ;;
+                --line) [[ -n "${2:-}" ]] || die "missing value for $1"; line="$2"; shift 2 ;;
                 *) die "ensure-line: unknown option: $1" ;;
             esac
         done
@@ -405,9 +405,9 @@ case "$cmd" in
         file="" name="" dir="" mode="prepend"
         while [[ $# -gt 0 ]]; do
             case "$1" in
-                --file) file="${2:?missing value for $1}"; shift 2 ;;
-                --name) name="${2:?missing value for $1}"; shift 2 ;;
-                --dir) dir="${2:?missing value for $1}"; shift 2 ;;
+                --file) [[ -n "${2:-}" ]] || die "missing value for $1"; file="$2"; shift 2 ;;
+                --name) [[ -n "${2:-}" ]] || die "missing value for $1"; name="$2"; shift 2 ;;
+                --dir) [[ -n "${2:-}" ]] || die "missing value for $1"; dir="$2"; shift 2 ;;
                 --append) mode="append"; shift ;;
                 *) die "ensure-path-block: unknown option: $1" ;;
             esac

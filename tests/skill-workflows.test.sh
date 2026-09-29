@@ -22,7 +22,11 @@ out="$("$ZP" --version 2>"$TEST_DIR/err")"
 # --- skill-path reports the bundled skill and its source commit ----------------
 "$ZP" skill-path >"$TEST_DIR/skill"
 bundle="$(sed -n 1p "$TEST_DIR/skill")"
-sed -n 2p "$TEST_DIR/skill" | grep -Eqx 'commit ([0-9a-f]{40}|unknown)' || fail "skill-path reports a commit line"
+# A packaged release must name its source commit; only a direct run from a
+# tree with no git metadata may report unknown.
+commit_re='commit ([0-9a-f]{40}|unknown)'
+[[ -z "${CLI_SKILL_GATE_EXECUTABLE:-}" ]] || commit_re='commit [0-9a-f]{40}'
+sed -n 2p "$TEST_DIR/skill" | grep -Eqx "$commit_re" || fail "skill-path reports the source commit"
 cmp -s "$bundle/SKILL.md" "$SKILL" || fail "bundled SKILL.md matches the source"
 
 # --- ensure-path-block writes once, then reports unchanged ---------------------
@@ -42,6 +46,10 @@ status=$?
 set -e
 [[ $status -eq 1 ]] || fail "lint exits 1 on findings"
 grep -q ':1: unguarded PATH export' "$TEST_DIR/lint" || fail "lint prints file:line: finding"
+printf 'top\n# BEGIN demo\nx\n\n' >"$TEST_DIR/eof"
+"$ZP" lint "$TEST_DIR/eof" >"$TEST_DIR/lint" && fail "lint exits 1 on EOF findings"
+grep -Fqx "$TEST_DIR/eof:2: unterminated block at EOF: # BEGIN demo" "$TEST_DIR/lint" || fail "EOF block finding names its line"
+grep -Fqx "$TEST_DIR/eof:4: trailing blank line(s) at EOF" "$TEST_DIR/lint" || fail "EOF blank finding names its line"
 
 # --- errors go to stderr with the program prefix -------------------------------
 set +e
@@ -50,6 +58,12 @@ status=$?
 set -e
 [[ $status -eq 1 && ! -s "$TEST_DIR/out" ]] || fail "unknown command exits 1 with no stdout"
 [[ "$(cat "$TEST_DIR/err")" == "zsh-profile: unknown command: no-such-command" ]] || fail "error format"
+set +e
+"$ZP" ensure-block --file >"$TEST_DIR/out" 2>"$TEST_DIR/err"
+status=$?
+set -e
+[[ $status -eq 1 && ! -s "$TEST_DIR/out" ]] || fail "missing option value exits 1 with no stdout"
+[[ "$(cat "$TEST_DIR/err")" == "zsh-profile: missing value for --file" ]] || fail "missing value error format"
 
 # --- every command the skill classifies is documented by --help ----------------
 help="$("$ZP" --help)"
