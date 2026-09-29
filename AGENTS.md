@@ -11,7 +11,13 @@ from a **private** tap. Everything here is zsh — no bash compatibility needed.
   (autoload convention)
 - `install` + `lib/install.sh` — machine install (mirrors local-bin): links,
   manifest, managed `.zshenv` loader block via `bin/zsh-profile`
-- `Formula/zsh-functions.rb` — Homebrew formula
+- `Formula/zsh-functions.rb` — Homebrew formula; from v0.2.0 it also installs
+  `VERSION` and the `skills/zsh-functions` usage skill into `libexec`
+- `VERSION` — the release version `zsh-profile --version` prints; bump it in
+  the release PR, before tagging `v*`
+- `skills/zsh-functions/` — the usage skill every release ships
+  ([ENG-0055](https://github.com/qwts/qwts-agent-sop/blob/main/docs/decisions/ENG-0055-every-cli-ships-its-agent-skill.md));
+  CI's `CLI skill release gate` fails when `VERSION` leaves its `qwts-versions`
 
 ## Conventions
 
@@ -30,6 +36,8 @@ from a **private** tap. Everything here is zsh — no bash compatibility needed.
   `bash tests/zsh-profile.test.sh` — run from a neutral working directory
 - `install` tests are plain bash with an isolated `HOME`, no runner:
   `bash tests/install.test.sh` — same convention, never touches the real `~/`
+- Skill workflow tests, which the release gate runs against the packaged
+  `zsh-profile`: `bash tests/skill-workflows.test.sh`
 
 ## zsh-profile / managed-block conventions
 

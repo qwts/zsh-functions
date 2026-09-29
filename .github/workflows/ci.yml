@@ -1,0 +1,84 @@
+# The repository's first CI (qwts/zsh-functions#12). It runs the plain-bash
+# suites the AGENTS.md verification list names, and the ENG-0055 CLI skill
+# release gate against the tree packaged as the formula installs it.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Refresh package lists
+        uses: qwts/qwts-agent-ci/.github/actions/bounded-command@518948bdfaa8f64a9fc5803f339fe32f8dc0c62e
+        with:
+          task: Refresh package lists
+          executable: sudo
+          arguments-json: '["apt-get", "update"]'
+          timeout-seconds: '120'
+          attempts: '2'
+          retry-delay-seconds: '10'
+      - name: Install zsh
+        uses: qwts/qwts-agent-ci/.github/actions/bounded-command@518948bdfaa8f64a9fc5803f339fe32f8dc0c62e
+        with:
+          task: Install zsh
+          executable: sudo
+          arguments-json: '["apt-get", "install", "-y", "--no-install-recommends", "zsh"]'
+          timeout-seconds: '180'
+          attempts: '2'
+          retry-delay-seconds: '10'
+      - name: Syntax-check every function
+        run: for f in functions/*; do zsh -n "$f"; done
+      - name: Run the suites from a neutral directory
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          for t in "$GITHUB_WORKSPACE"/tests/*.test.sh; do bash "$t"; done
+
+  skill-gate:
+    name: CLI skill release gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: Package the tree as the formula installs it
+        # bin/zsh-profile, plus VERSION, the skill, and the source commit in
+        # libexec, as Formula/zsh-functions.rb installs them.
+        run: |
+          set -euo pipefail
+          pkg="$RUNNER_TEMP/pkg"
+          mkdir -p "$pkg/bin" "$pkg/libexec/skills"
+          install -m 0755 bin/zsh-profile "$pkg/bin/zsh-profile"
+          cp VERSION "$pkg/libexec/VERSION"
+          cp -R skills/zsh-functions "$pkg/libexec/skills/zsh-functions"
+          git rev-parse HEAD >"$pkg/libexec/RELEASE_COMMIT"
+      - uses: qwts/qwts-agent-ci/.github/actions/cli-skill-gate@518948bdfaa8f64a9fc5803f339fe32f8dc0c62e
+        with:
+          skill: skills/zsh-functions
+          executable: ${{ runner.temp }}/pkg/bin/zsh-profile
+          bundle: ${{ runner.temp }}/pkg/libexec/skills/zsh-functions
+          bundle-args-json: '["skill-path"]'
+          test-json: '["bash", "tests/skill-workflows.test.sh"]'

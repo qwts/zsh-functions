@@ -14,6 +14,9 @@ These skills are also cataloged by link in `dev-steward/skills/README.md`
 
 ## Available skills
 
+- [zsh-functions](zsh-functions/SKILL.md) — use the installed API and
+  `zsh-profile`: PATH/fpath helpers, guarded `BEGIN/END` blocks, lint. The
+  ENG-0055 usage skill each release bundles; owns the API catalog.
 - [add-zsh-function](add-zsh-function/SKILL.md) — author a new zsh function:
   `functions/<name>` per `AGENTS.md`, reuse of the API catalog, formula and
   `v*` tag release.

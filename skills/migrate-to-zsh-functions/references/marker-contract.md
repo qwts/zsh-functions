@@ -12,7 +12,7 @@ that already works for `# BEGIN local-bin`.
   and append a fresh block; they never touch lines outside the markers.
 - Readers match the marker against the **whole file**, so a hand-moved block is
   still recognized and never duplicated.
-- Block body calls `zsh_functions_init` (see the [api-catalog](../../add-zsh-function/references/api-catalog.md)); it contains no inline
+- Block body calls `zsh_functions_init` (see the [api-catalog](../../zsh-functions/references/api-catalog.md)); it contains no inline
   PATH/fpath logic beyond the init call, so behavior changes ship with the
   functions, not with every writer.
 

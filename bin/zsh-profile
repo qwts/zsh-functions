@@ -25,6 +25,8 @@ usage: zsh-profile <command> [options]
   ensure-path-block  --file F --name NAME --dir DIR [--append]
   lint               FILE...
   compact            FILE...
+  skill-path         print the bundled agent skill directory and source commit
+  --version          print the release version
 
 Blocks are delimited by exact "# BEGIN <name>" / "# END <name>" lines.
 ensure-block replaces an existing block in place, or appends a new one with a
@@ -272,8 +274,53 @@ zp_compact_file() {
     ' "$file" >"$out_tmp"
 }
 
+# The release tree this script belongs to: the formula's libexec beside bin/,
+# or the source checkout that holds bin/. Symlinks (the ./install links) are
+# followed first so the lookup lands in the real tree.
+zp_release_root() {
+    local self="${BASH_SOURCE[0]}" dir target
+    while [[ -L "$self" ]]; do
+        dir="$(cd -P "$(dirname "$self")" && pwd)"
+        target="$(readlink "$self")"
+        [[ "$target" == /* ]] && self="$target" || self="$dir/$target"
+    done
+    dir="$(cd -P "$(dirname "$self")/.." && pwd)"
+    if [[ -f "$dir/libexec/VERSION" ]]; then
+        printf '%s\n' "$dir/libexec"
+    elif [[ -f "$dir/VERSION" ]]; then
+        printf '%s\n' "$dir"
+    else
+        die "cannot locate the release tree (no VERSION beside $dir)"
+    fi
+}
+
+# Source commit: git in a checkout, else the RELEASE_COMMIT the formula writes.
+zp_release_commit() {
+    local root="$1" sha=""
+    if [[ -e "$root/.git" ]]; then
+        sha="$(git -C "$root" rev-parse HEAD 2>/dev/null || true)"
+    fi
+    if [[ ! "$sha" =~ ^[0-9a-f]{40}$ && -f "$root/RELEASE_COMMIT" ]]; then
+        sha="$(tr -d '[:space:]' <"$root/RELEASE_COMMIT")"
+    fi
+    [[ "$sha" =~ ^[0-9a-f]{40}$ ]] && printf '%s\n' "$sha" || printf 'unknown\n'
+}
+
 cmd="${1:-}"
 case "$cmd" in
+    --version)
+        [[ $# -eq 1 ]] || die "--version does not accept arguments"
+        root="$(zp_release_root)"
+        tr -d '[:space:]' <"$root/VERSION"; printf '\n'
+        exit 0
+        ;;
+    skill-path)
+        [[ $# -eq 1 ]] || die "skill-path does not accept arguments"
+        root="$(zp_release_root)"
+        [[ -f "$root/skills/zsh-functions/SKILL.md" ]] || die "no skill bundle at $root/skills/zsh-functions"
+        printf '%s\ncommit %s\n' "$root/skills/zsh-functions" "$(zp_release_commit "$root")"
+        exit 0
+        ;;
     ensure-block|remove-block|ensure-line|ensure-path-block|lint|compact|--help|-h|help|"") ;;
     *) die "unknown command: $cmd" ;;
 esac

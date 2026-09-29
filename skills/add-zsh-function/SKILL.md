@@ -14,7 +14,7 @@ live in `AGENTS.md` — follow them, they are not repeated here.
 ## Before you start
 
 1. Open `AGENTS.md` (layout, conventions, verification, private-tap notes).
-2. Open [api-catalog.md](references/api-catalog.md) for the canonical helpers. Reuse them —
+2. Open [api-catalog.md](../zsh-functions/references/api-catalog.md) for the canonical helpers. Reuse them —
    do not reimplement PATH/fpath dedup, prefix caching, or init guards inline.
 3. Confirm the function name: filename == function name, no extension.
 
