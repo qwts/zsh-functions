@@ -81,7 +81,7 @@ if printf 'x\n' | "$ZP" ensure-block --file "$ZSHRC" --name broken >/dev/null 2>
 fi
 
 # --- ensure-block: file mode preserved ----------------------------------------
-mode_of() { stat -f %Lp "$1" 2>/dev/null || stat -c %a "$1"; }
+mode_of() { stat -c %a "$1" 2>/dev/null || stat -f %Lp "$1"; }
 printf 'mode test\n' >"$ZSHRC"
 chmod 640 "$ZSHRC"
 printf 'x\n' | "$ZP" ensure-block --file "$ZSHRC" --name m >/dev/null

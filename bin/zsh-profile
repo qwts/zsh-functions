@@ -42,7 +42,7 @@ die() {
 
 # Octal mode of a file, BSD or GNU stat.
 zp_mode() {
-    stat -f %Lp "$1" 2>/dev/null || stat -c %a "$1" 2>/dev/null || echo 644
+    stat -c %a "$1" 2>/dev/null || stat -f %Lp "$1" 2>/dev/null || echo 644
 }
 
 # Output temporary beside the destination: mv across filesystems is a
