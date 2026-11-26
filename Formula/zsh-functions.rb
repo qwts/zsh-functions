@@ -1,11 +1,11 @@
 class ZshFunctions < Formula
   desc "Common zsh shell functions"
   homepage "https://github.com/qwts/zsh-functions"
-  url "git@github.com:qwts/zsh-functions.git",
+  url "https://github.com/qwts/zsh-functions.git",
       tag:      "v0.2.1",
-      revision: "b9b6b709d45ba29ae77f145d2ab4ea7cbe386541"
+      revision: "41aaf1c402d9afbc08abc4e6c5071fa1c35460ec"
   version "0.2.1"
-  head "git@github.com:qwts/zsh-functions.git", branch: "main"
+  head "https://github.com/qwts/zsh-functions.git", branch: "main"
 
   uses_from_macos "zsh"
 
