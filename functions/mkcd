@@ -1,3 +1,9 @@
 mkcd() {
+  if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    print "Usage: mkcd <directory>"
+    print ""
+    print "Create a directory and change into it."
+    return 0
+  fi
   mkdir -p -- "$1" && cd -- "$1"
 }
