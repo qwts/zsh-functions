@@ -3,7 +3,7 @@ class ZshFunctions < Formula
   homepage "https://github.com/qwts/zsh-functions"
   url "https://github.com/qwts/zsh-functions.git",
       tag:      "v0.2.1",
-      revision: "41aaf1c402d9afbc08abc4e6c5071fa1c35460ec"
+      revision: "9bf50396fc5ddbca4006389f11248ec44ed21aa3"
   version "0.2.1"
   head "https://github.com/qwts/zsh-functions.git", branch: "main"
 
