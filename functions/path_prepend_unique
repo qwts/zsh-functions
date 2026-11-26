@@ -2,6 +2,14 @@
 # Usage: path_prepend_unique <dir> [...]
 path_prepend_unique() {
   emulate -L zsh
+  if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    print "Usage: path_prepend_unique <dir> [...]"
+    print ""
+    print "Prepend one or more directories to PATH if they are not already present."
+    print "Directories must exist and be readable. No effect if argument is not"
+    print "a valid, readable directory or is already in PATH."
+    return 0
+  fi
   # Collect first: rejected inputs (no args, missing/unreadable dirs,
   # already-present dirs) return without touching PATH at all, so a no-op
   # call is byte-identical and never collapses pre-existing duplicates.

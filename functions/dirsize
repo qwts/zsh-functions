@@ -9,6 +9,23 @@ dirsize() {
   emulate -L zsh
   setopt localoptions null_glob
 
+  if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    print "Usage: dirsize [-j jobs] [directory]"
+    print ""
+    print "List immediate subdirectories by disk size, largest first."
+    print ""
+    print "Options:"
+    print "  -j N         run at most N du processes in parallel"
+    print "               (default: CPU count, or \$DIRSIZE_JOBS)"
+    print "  -j=N         same as -j N"
+    print ""
+    print "Arguments:"
+    print "  directory    target directory (default: current directory)"
+    print ""
+    print "Output format: <size>\\t<path>, sorted largest-first."
+    return 0
+  fi
+
   local jobs="${DIRSIZE_JOBS:-}"
   while [[ "${1:-}" == "-j" || "${1:-}" == "--jobs" ]]; do
     if [[ -z "${2:-}" ]]; then

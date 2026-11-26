@@ -5,6 +5,14 @@
 # fpath once, and autoloads each plain file in it. Cycle-safe via $_ZSH_FUNCTIONS_INITED.
 zsh_functions_init() {
   emulate -L zsh
+  if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    print "Usage: zsh_functions_init"
+    print ""
+    print "Single entry point for the managed loader block. Resolves the functions"
+    print "directory, caches it, adds to fpath, and autoloads each function. Cycle-safe"
+    print "and idempotent; safe to call multiple times."
+    return 0
+  fi
   setopt localoptions extendedglob null_glob
   if (( ${+_ZSH_FUNCTIONS_INITED} )) && [[ -n "${_ZSH_FUNCTIONS_INITED:-}" ]]; then
     return 0

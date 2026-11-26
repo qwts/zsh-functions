@@ -2,6 +2,14 @@
 # Usage: fpath_add_unique <dir> [...]
 fpath_add_unique() {
   emulate -L zsh
+  if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    print "Usage: fpath_add_unique <dir> [...]"
+    print ""
+    print "Prepend one or more directories to fpath if they are not already present."
+    print "Directories must exist. No effect if argument is not a valid directory"
+    print "or is already in fpath."
+    return 0
+  fi
   # Same no-op contract as path_prepend_unique: validate first so rejected
   # inputs leave fpath byte-identical.
   local d p q found

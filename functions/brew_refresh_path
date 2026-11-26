@@ -4,6 +4,13 @@
 # manually or from precmd/chpwd. Delegates to path_prepend_unique.
 brew_refresh_path() {
   emulate -L zsh
+  if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    print "Usage: brew_refresh_path"
+    print ""
+    print "Put Homebrew bin/sbin directories on PATH without writes or subprocesses."
+    print "Light repair only; idempotent and safe to call manually or from precmd/chpwd."
+    return 0
+  fi
   local prefix
   local -a prefixes
   prefixes=()
